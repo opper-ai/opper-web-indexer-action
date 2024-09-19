@@ -34,7 +34,6 @@ async def scrape_website(url, base_url):
     h.ignore_links = False
     h.ignore_images = False
     markdown_text = h.handle(str(soup))
-    print(markdown_text)
 
     # Extract links
     links = set()
