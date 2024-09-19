@@ -1,0 +1,19 @@
+name: "Opper Web Indexer Action"
+description: "Scrapes web content and adds it to an Opper index"
+inputs:
+  apikey:
+    description: "Opper API key"
+    required: true
+  index:
+    description: "Name of the Opper index to update"
+    required: true
+  url:
+    description: "URL to scrape"
+    required: true
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - ${{ inputs.apikey }}
+    - ${{ inputs.index }}
+    - ${{ inputs.url }}

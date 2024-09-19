@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "opper-web-indexer-action"
+version = "0.1.0"
+description = ""
+authors = ["Johnny Chadda <johnny@opper.ai>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+beautifulsoup4 = "^4.12.3"
+opperai = "^0.15.2"
+fastapi = "^0.114.2"
+uvicorn = "^0.30.6"
+requests = "^2.32.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
