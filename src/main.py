@@ -1,13 +1,14 @@
-import requests
-from bs4 import BeautifulSoup
-import html2text
-from opperai import Opper
-from opperai.types import DocumentIn
-from urllib.parse import urljoin, urldefrag
-from opperai.types.exceptions import APIError
-import sys
 import argparse
 import asyncio
+import html2text
+import requests
+import sys
+
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urldefrag
+from opperai import Opper
+from opperai.types import DocumentIn
+from opperai.types.exceptions import APIError
 
 
 async def scrape_website(url, base_url):
