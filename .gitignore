@@ -5,9 +5,6 @@
 __pycache__/
 *.py[cod]
 
-# Poetry
-poetry.lock
-
 # Environment variables
 .env
 
