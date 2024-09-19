@@ -14,7 +14,5 @@ RUN poetry config virtualenvs.create false \
 # Copy the rest of the application
 COPY . .
 
-EXPOSE 8000
-
 # Run the application
-ENTRYPOINT ["poetry", "run", "python", "src/main.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]
