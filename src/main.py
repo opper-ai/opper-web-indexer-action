@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import html2text
 from opperai import Opper
 from opperai.types import DocumentIn
 from urllib.parse import urljoin, urldefrag
@@ -26,7 +27,13 @@ async def scrape_website(url, base_url):
         return "", set()
 
     soup = BeautifulSoup(content, "html.parser")
-    text = soup.get_text(separator=" ", strip=True)
+
+    # Convert HTML to Markdown
+    h = html2text.HTML2Text()
+    h.ignore_links = False
+    h.ignore_images = False
+    markdown_text = h.handle(str(soup))
+    print(markdown_text)
 
     # Extract links
     links = set()
@@ -38,7 +45,7 @@ async def scrape_website(url, base_url):
         if defragged_url.startswith(base_url):
             links.add(defragged_url)
 
-    return text, links
+    return markdown_text, links
 
 
 def clean_text(text):
