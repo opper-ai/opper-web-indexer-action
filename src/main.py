@@ -19,13 +19,13 @@ async def scrape_website(url, base_url):
     except requests.HTTPError as e:
         if e.response.status_code == 404:
             print(f"404 Error: Page not found for {url}")
-            return "", set()
+            return "", set(), ""
         else:
             print(f"Error fetching {url}: {e}")
-            return "", set()
+            return "", set(), ""
     except requests.RequestException as e:
         print(f"Error fetching {url}: {e}")
-        return "", set()
+        return "", set(), ""
 
     soup = BeautifulSoup(content, "html.parser")
 
@@ -86,7 +86,7 @@ async def recursive_scrape(base_url, index):
                     )
                 )
                 added_to_index.add(defragged_url)
-                update_status(defragged_url, "Indexed")
+                update_status(defragged_url, f"Indexed (Title: {title})")
             else:
                 update_status(defragged_url, "Already indexed")
         else:
