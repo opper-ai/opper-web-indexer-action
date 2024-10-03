@@ -29,6 +29,9 @@ async def scrape_website(url, base_url):
 
     soup = BeautifulSoup(content, "html.parser")
 
+    # Extract page title
+    title = soup.title.string if soup.title else ""
+
     # Convert HTML to Markdown
     h = html2text.HTML2Text()
     h.ignore_links = False
@@ -45,7 +48,7 @@ async def scrape_website(url, base_url):
         if defragged_url.startswith(base_url):
             links.add(defragged_url)
 
-    return markdown_text, links
+    return markdown_text, links, title
 
 
 def clean_text(text):
@@ -69,7 +72,7 @@ async def recursive_scrape(base_url, index):
             continue
 
         update_status(defragged_url, "Fetching")
-        content, links = await scrape_website(defragged_url, base_url)
+        content, links, title = await scrape_website(defragged_url, base_url)
         cleaned_text = clean_text(content)
 
         if cleaned_text:  # Only index if there's content
@@ -79,7 +82,7 @@ async def recursive_scrape(base_url, index):
                     DocumentIn(
                         key=defragged_url,
                         content=cleaned_text,
-                        metadata={"url": defragged_url},
+                        metadata={"url": defragged_url, "name": title},
                     )
                 )
                 added_to_index.add(defragged_url)
