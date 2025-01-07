@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Index website in Opper
-        uses: opper-ai/opper-web-indexer-action@v1.0.0
+        uses: opper-ai/opper-web-indexer-action@v1.1.2
         with:
           apikey: ${{ secrets.OPPER_API_KEY }}
           index: 'my-index'
