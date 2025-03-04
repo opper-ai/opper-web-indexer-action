@@ -24,3 +24,27 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "${{ github.ref_name }}" \
             --notes "Release ${{ github.ref_name }}"
+
+      - name: Update major version tag
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Extract the major version (v1, v2, etc.) from the tag
+          MAJOR_VERSION=$(echo ${{ github.ref_name }} | grep -o '^v[0-9]\+')
+          
+          if [ ! -z "$MAJOR_VERSION" ]; then
+            echo "Updating major version tag $MAJOR_VERSION to point to ${{ github.ref_name }}"
+            
+            # Delete the major version tag if it exists
+            git tag -d $MAJOR_VERSION || true
+            git push --delete origin $MAJOR_VERSION || true
+            
+            # Create the major version tag pointing to the current commit
+            git tag $MAJOR_VERSION
+            git push origin $MAJOR_VERSION --force
+            
+            echo "Successfully updated $MAJOR_VERSION tag"
+          else
+            echo "Not a version tag in the format v1.x.x - skipping major version update"
+          fi
