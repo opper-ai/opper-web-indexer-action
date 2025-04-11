@@ -3,13 +3,28 @@ import asyncio
 import html2text
 import requests
 import sys
+from pydantic import BaseModel
 
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urldefrag
-from opperai import Opper
+from opperai import Opper, trace
 from opperai.types import DocumentIn
 from opperai.types.exceptions import APIError
 
+async def extract_metadata(content):
+    
+    class Metadata(BaseModel):
+        page_description: str
+        keywords: list[str]
+       
+    response, _ = opper.call(
+        name = "extract_docs_metadata",
+        instructions = "Extract the metadata from the content",
+        input = content,
+        output_type = Metadata,
+        model = "gcp/gemini-2.0-flash-lite-eu",
+    )
+    return response
 
 async def scrape_website(url, base_url):
     try:
@@ -19,24 +34,34 @@ async def scrape_website(url, base_url):
     except requests.HTTPError as e:
         if e.response.status_code == 404:
             print(f"404 Error: Page not found for {url}")
-            return "", set(), ""
+            return "", "", set(), ""
         else:
             print(f"Error fetching {url}: {e}")
-            return "", set(), ""
+            return "", "", set(), ""
     except requests.RequestException as e:
         print(f"Error fetching {url}: {e}")
-        return "", set(), ""
+        return "", "", set(), ""
 
     soup = BeautifulSoup(content, "html.parser")
 
     # Extract page title
     title = soup.title.string if soup.title else ""
 
+    # Extract a certain element of the page
+    article = soup.find("article")
+    if article:
+        content = article
+    else:
+        content = soup
+
     # Convert HTML to Markdown
     h = html2text.HTML2Text()
     h.ignore_links = False
     h.ignore_images = False
-    markdown_text = h.handle(str(soup))
+    markdown_text = h.handle(str(content))
+
+    # Extract metadata
+    metadata = await extract_metadata(markdown_text)
 
     # Extract links
     links = set()
@@ -48,7 +73,7 @@ async def scrape_website(url, base_url):
         if defragged_url.startswith(base_url):
             links.add(defragged_url)
 
-    return markdown_text, links, title
+    return markdown_text, metadata, links, title
 
 
 def clean_text(text):
@@ -59,7 +84,7 @@ def update_status(url, status):
     sys.stdout.write(f"\r{url[:70]:<70} | {status:<20}")
     sys.stdout.flush()
 
-
+@trace
 async def recursive_scrape(base_url, index):
     visited = set()
     to_visit = {base_url}
@@ -72,7 +97,7 @@ async def recursive_scrape(base_url, index):
             continue
 
         update_status(defragged_url, "Fetching")
-        content, links, title = await scrape_website(defragged_url, base_url)
+        content, metadata, links, title = await scrape_website(defragged_url, base_url)
         cleaned_text = clean_text(content)
 
         if cleaned_text:  # Only index if there's content
@@ -82,7 +107,7 @@ async def recursive_scrape(base_url, index):
                     DocumentIn(
                         key=defragged_url,
                         content=cleaned_text,
-                        metadata={"url": defragged_url, "name": title},
+                        metadata={"url": defragged_url, "name": title, "page_description": metadata.page_description, "keywords": metadata.keywords},
                     )
                 )
                 added_to_index.add(defragged_url)
@@ -106,7 +131,9 @@ async def main():
     parser.add_argument("url", help="URL to index")
     args = parser.parse_args()
 
+    global opper
     opper = Opper(api_key=args.api_key)
+
     try:
         index = opper.indexes.get(name=args.index_name)
         if index is None:
