@@ -1,17 +1,33 @@
 import argparse
 import asyncio
+import sys
+from urllib.parse import urldefrag, urljoin
+
 import html2text
 import requests
-import sys
-
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urldefrag
-from opperai import Opper
+from opperai import Opper, trace
 from opperai.types import DocumentIn
 from opperai.types.exceptions import APIError
+from pydantic import BaseModel
 
 
-async def scrape_website(url, base_url):
+async def extract_metadata(content):
+    class Metadata(BaseModel):
+        page_description: str
+        keywords: list[str]
+
+    response, _ = opper.call(
+        name="extract_docs_metadata",
+        instructions="Extract the metadata from the content",
+        input=content,
+        output_type=Metadata,
+        model="gcp/gemini-2.0-flash-lite-eu",
+    )
+    return response
+
+
+async def scrape_website(url, base_url, element_selector=None):
     try:
         response = requests.get(url)
         response.raise_for_status()
@@ -19,24 +35,37 @@ async def scrape_website(url, base_url):
     except requests.HTTPError as e:
         if e.response.status_code == 404:
             print(f"404 Error: Page not found for {url}")
-            return "", set(), ""
+            return "", "", set(), ""
         else:
             print(f"Error fetching {url}: {e}")
-            return "", set(), ""
+            return "", "", set(), ""
     except requests.RequestException as e:
         print(f"Error fetching {url}: {e}")
-        return "", set(), ""
+        return "", "", set(), ""
 
     soup = BeautifulSoup(content, "html.parser")
 
     # Extract page title
     title = soup.title.string if soup.title else ""
 
+    # Extract a certain element of the page if specified, otherwise use the full page
+    if element_selector:
+        selected_element = soup.find(element_selector)
+        if selected_element:
+            content = selected_element
+        else:
+            content = soup
+    else:
+        content = soup
+
     # Convert HTML to Markdown
     h = html2text.HTML2Text()
     h.ignore_links = False
     h.ignore_images = False
-    markdown_text = h.handle(str(soup))
+    markdown_text = h.handle(str(content))
+
+    # Extract metadata
+    metadata = await extract_metadata(markdown_text)
 
     # Extract links
     links = set()
@@ -48,7 +77,7 @@ async def scrape_website(url, base_url):
         if defragged_url.startswith(base_url):
             links.add(defragged_url)
 
-    return markdown_text, links, title
+    return markdown_text, metadata, links, title
 
 
 def clean_text(text):
@@ -60,7 +89,8 @@ def update_status(url, status):
     sys.stdout.flush()
 
 
-async def recursive_scrape(base_url, index):
+@trace
+async def recursive_scrape(base_url, index, element_selector=None):
     visited = set()
     to_visit = {base_url}
     added_to_index = set()
@@ -72,7 +102,9 @@ async def recursive_scrape(base_url, index):
             continue
 
         update_status(defragged_url, "Fetching")
-        content, links, title = await scrape_website(defragged_url, base_url)
+        content, metadata, links, title = await scrape_website(
+            defragged_url, base_url, element_selector
+        )
         cleaned_text = clean_text(content)
 
         if cleaned_text:  # Only index if there's content
@@ -82,7 +114,12 @@ async def recursive_scrape(base_url, index):
                     DocumentIn(
                         key=defragged_url,
                         content=cleaned_text,
-                        metadata={"url": defragged_url, "name": title},
+                        metadata={
+                            "url": defragged_url,
+                            "name": title,
+                            "page_description": metadata.page_description,
+                            "keywords": metadata.keywords,
+                        },
                     )
                 )
                 added_to_index.add(defragged_url)
@@ -104,16 +141,22 @@ async def main():
     parser.add_argument("api_key", help="API key for Opper")
     parser.add_argument("index_name", help="Name of the index")
     parser.add_argument("url", help="URL to index")
+    parser.add_argument(
+        "--element",
+        help="HTML element to extract (if not specified, uses the full page)",
+    )
     args = parser.parse_args()
 
+    global opper
     opper = Opper(api_key=args.api_key)
+
     try:
         index = opper.indexes.get(name=args.index_name)
         if index is None:
             index = opper.indexes.create(name=args.index_name)
         if index is None:
             raise Exception("Failed to get or create index")
-        await recursive_scrape(args.url, index)
+        await recursive_scrape(args.url, index, args.element)
         print("URL indexed successfully")
     except APIError as e:
         print(f"API Error: {e}")
