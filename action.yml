@@ -10,6 +10,9 @@ inputs:
   url:
     description: "URL to scrape"
     required: true
+  element:
+    description: "HTML element to extract (if not specified, uses the full page)"
+    required: false
 runs:
   using: "docker"
   image: "Dockerfile"
@@ -17,3 +20,4 @@ runs:
     - ${{ inputs.apikey }}
     - ${{ inputs.index }}
     - ${{ inputs.url }}
+    - ${{ inputs.element && format('--element={0}', inputs.element) || '' }}
