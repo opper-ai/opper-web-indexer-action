@@ -2,7 +2,7 @@ FROM python:3.12-alpine
 WORKDIR /app
 
 # Install poetry
-RUN pip install poetry==2.0.0
+RUN pip install poetry==2.5.1
 
 # Copy only dependency files initially
 COPY pyproject.toml poetry.lock ./

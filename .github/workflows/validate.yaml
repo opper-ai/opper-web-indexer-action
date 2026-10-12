@@ -1,0 +1,31 @@
+name: Validate action
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build action container
+        run: docker build --tag action-under-test .
+      - name: Check installed dependencies
+        run: docker run --rm --entrypoint python action-under-test -m pip check
+      - name: Audit installed dependencies
+        run: |
+          docker run --rm --entrypoint python action-under-test -m pip freeze > requirements-audit.txt
+          python -m pip install pip-audit
+          pip-audit --no-deps --disable-pip --requirement requirements-audit.txt
+      - name: Test action entrypoint
+        run: docker run --rm --network none --entrypoint python action-under-test -m unittest discover -s tests -v
+

@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import os
 import sys
 from urllib.parse import urldefrag, urljoin
 
@@ -147,6 +148,7 @@ async def main():
     )
     args = parser.parse_args()
 
+    os.environ["OPPER_API_KEY"] = args.api_key
     global opper
     opper = Opper(api_key=args.api_key)
 
